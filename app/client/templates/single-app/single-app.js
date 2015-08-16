@@ -6,35 +6,21 @@ Template.SingleApp.onCreated(function() {
   var tmp = this;
   tmp.appId = FlowRouter.getParam('appId');
   tmp.ready = new ReactiveVar(false);
-
-  // Load full app data
-  Api.getApp(tmp.appId, function(err, app) {
-    if (err) return AntiModals.overlay('errorModal', {data: {err: 'There was an error loading app data from the server'}});
-
-    // Make sure there's a partial app object already present to extend
-    tmp.autorun(function(c) {
-      if (AppMarket.appInit.get()) {
-        // TODO: REMOVE THIS - it only exists to ensure the random API data we get back in testing
-        // corresponds to the current route when it's added to the DB. 
-        // *****************
-        app.appId = tmp.appId;
-        console.log(app);
-        // *****************
-        if (Apps.find({appId: app.appId}).count()) {
-          Apps.update(app.appId, {$set: app});
-        } else {
-          app._id = app.appId;
-          Apps.insert(app);
-        }
+  tmp.readMore = new ReactiveVar(false);
+  tmp.autorun(function () {
+    try {
+      if (AppMarket.ensureDetailsFetched(tmp.appId)) {
         tmp.ready.set(true);
-        
+        var app = Apps.findOne(tmp.appId);
         if (!app.screenshots.length) tmp.readMore.set(true);
-        c.stop();
       }
-    });
+    } catch (err) {
+      console.error(err);
+      // TODO: This doesn't work as there is no `errorModal` template.
+      AntiModals.overlay('errorModal', {data: {err: 'There was an error loading app data from the server'}});
+    }
   });
 
-  tmp.readMore = new ReactiveVar(false);
   tmp.flagApp = new ReactiveVar(!!FlowRouter.current().queryParams.flag);
   tmp.writeReview = new ReactiveVar(false);
   tmp.myReview = new ReactiveVar({});
